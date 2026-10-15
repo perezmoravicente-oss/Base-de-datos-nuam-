@@ -1,0 +1,97 @@
+-- PostgreSQL: base de datos sencilla para nuam.
+-- Datos ficticios y un factor de ejemplo por calificación.
+
+BEGIN;
+
+-- 1. Corredoras.
+CREATE TABLE corredoras (
+    id_corredora SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    ciudad VARCHAR(50)
+);
+
+-- 2. Empresas que emiten instrumentos financieros.
+CREATE TABLE emisores (
+    id_emisor SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    sector VARCHAR(50)
+);
+
+-- 3. Cada instrumento pertenece a un emisor.
+CREATE TABLE instrumentos (
+    id_instrumento SERIAL PRIMARY KEY,
+    id_emisor INTEGER NOT NULL REFERENCES emisores(id_emisor),
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    tipo VARCHAR(30) NOT NULL
+);
+
+-- 4. Cada calificación corresponde a un instrumento.
+-- Si la corredora es NULL, representa información central de Bolsa.
+CREATE TABLE calificaciones (
+    id_calificacion SERIAL PRIMARY KEY,
+    id_instrumento INTEGER NOT NULL
+        REFERENCES instrumentos(id_instrumento),
+    id_corredora INTEGER
+        REFERENCES corredoras(id_corredora),
+    fecha DATE NOT NULL,
+    monto NUMERIC(14,2) NOT NULL CHECK (monto >= 0),
+    factor NUMERIC(10,8) NOT NULL CHECK (factor BETWEEN 0 AND 1),
+    observacion VARCHAR(200)
+);
+
+-- DATOS DE EJEMPLO.
+
+INSERT INTO corredoras (nombre, ciudad) VALUES
+('Cordillera Corredores Demo', 'Santiago'),
+('Maule Inversiones Demo', 'Talca');
+
+INSERT INTO emisores (nombre, sector) VALUES
+('Energia del Maule Demo', 'Energia'),
+('Fondo Horizonte Demo', 'Inversiones');
+
+INSERT INTO instrumentos (id_emisor, codigo, tipo) VALUES
+(1, 'ENERGIA-A', 'Accion'),
+(2, 'HORIZONTE-A', 'Cuota de fondo');
+
+INSERT INTO calificaciones (
+    id_instrumento,
+    id_corredora,
+    fecha,
+    monto,
+    factor,
+    observacion
+) VALUES
+(
+    1, NULL, '2026-03-15', 1000000, 0.60000000,
+    'Informacion original de Bolsa'
+),
+(
+    1, 1, '2026-03-15', 1000000, 0.55000000,
+    'Ajuste realizado por la corredora Cordillera'
+),
+(
+    2, 2, '2026-04-10', 2000000, 0.70000000,
+    'Calificacion ingresada por Maule Inversiones'
+);
+
+COMMIT;
+
+-- CONSULTA: mostrar las calificaciones con sus relaciones.
+
+SELECT
+    c.id_calificacion,
+    e.nombre AS emisor,
+    i.codigo AS instrumento,
+    COALESCE(co.nombre, 'Bolsa - sistema central') AS origen,
+    c.fecha,
+    c.monto,
+    c.factor,
+    c.observacion
+FROM calificaciones c
+JOIN instrumentos i
+    ON c.id_instrumento = i.id_instrumento
+JOIN emisores e
+    ON i.id_emisor = e.id_emisor
+LEFT JOIN corredoras co
+    ON c.id_corredora = co.id_corredora
+ORDER BY c.id_calificacion;
